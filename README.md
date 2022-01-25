@@ -27,6 +27,11 @@ python git.py project -s
 python git.py project -l
 ```
 
+拉取submit记录中的项目
+```
+python git.py D:/zzh/versionManage/project/V1.0.0_2022-01-25-14-40-46 -c
+```
+
 删除project项目中所有的add和submit
 ```
 python git.py project -r
