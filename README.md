@@ -33,6 +33,7 @@ python git.py project -r
 ```
 
 ## Project Picture
+（图是旧的，还没更新）
 ![](./images/1.png)
 
 ![](./images/2.png)
