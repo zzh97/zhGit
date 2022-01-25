@@ -213,8 +213,8 @@ def zh_git (type, fromPath, projectName, version, ignore=''):
             # log (os.listdir(publicPath + projectName))
             logList = json.loads(read_file(toPath))
             for o in logList:
-                print ('version\t date\t\t\t message')
-                print (f'{o["version"]}\t {o["date"]}\t {o["message"]}')
+                print ('version\t  date\t\t\t message')
+                print (f'{o["version"]}\t  {o["date"]}\t {o["message"]}')
         else:
             error (f'{toPath}不存在')
 
@@ -310,9 +310,6 @@ def receive_Param (args):
         target = args[0][1]
     except:
         error ('错误：target为空')
-    if not os.path.exists(target):
-        error (f'找不到{target}文件夹，本次上传失败')
-        return
     # 判断命令的类型
     type = 'add'
     if len(args[0]) > 2:
@@ -325,6 +322,14 @@ def receive_Param (args):
             type = 'remove'
         elif param == 'log' or param == '-l':
             type = 'log'
+    if type == 'clone':
+        # 补全路径
+        publicPath = 'D:/zzh/versionManage/'
+        if not publicPath in target:
+            target = publicPath + target
+    if not os.path.exists(target):
+        error (f'找不到{target}文件夹，本次上传失败')
+        exit()
     return (target, type)
 
 # 主函数入口：接收参数后读取配置并进行版本管理
