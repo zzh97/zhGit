@@ -39,7 +39,7 @@ def set_color ():
     return set_cmd_text_color
 
 # 输出错误信息
-def error (mess):
+def error (mess, isLog=True):
     # Windows CMD命令行 字体颜色定义 text colors
     FOREGROUND_BLUE = 0x09 # blue.
     FOREGROUND_GREEN = 0x0a # green.
@@ -47,12 +47,15 @@ def error (mess):
     set_cmd_text_color = set_color ()
     set_cmd_text_color(FOREGROUND_RED)
     #   sys.stdout.write(mess + '\n')
-    log (mess)
+    if isLog:
+        log (mess)
+    else:
+        print (mess)
     # 重置回白色
     set_cmd_text_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE)
 
 # 输出警告信息
-def warning (mess):
+def warning (mess, isLog=True):
     # Windows CMD命令行 字体颜色定义 text colors
     FOREGROUND_BLUE = 0x09 # blue.
     FOREGROUND_GREEN = 0x0a # green.
@@ -60,12 +63,15 @@ def warning (mess):
     set_cmd_text_color = set_color ()
     set_cmd_text_color(FOREGROUND_RED | FOREGROUND_GREEN)
     #   sys.stdout.write(mess + '\n')
-    log (mess)
+    if isLog:
+        log (mess)
+    else:
+        print (mess)
     # 重置回白色
     set_cmd_text_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE)
 
 # 输出警告信息
-def success (mess):
+def success (mess, isLog=True):
     # Windows CMD命令行 字体颜色定义 text colors
     FOREGROUND_BLUE = 0x09 # blue.
     FOREGROUND_GREEN = 0x0a # green.
@@ -73,7 +79,10 @@ def success (mess):
     set_cmd_text_color = set_color ()
     set_cmd_text_color( FOREGROUND_GREEN)
     #   sys.stdout.write(mess + '\n')
-    log (mess)
+    if isLog:
+        log (mess)
+    else:
+        print (mess)
     # 重置回白色
     set_cmd_text_color(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE)
 
@@ -169,10 +178,12 @@ def zh_git (type, fromPath, projectName, version, ignore=''):
                     logList = json.loads(read_file(logPath))
                 else:
                     logList = []
+                print ('请输入本次提交的说明：', end='')
+                msg = input()
                 logList.append({
                     'version': version,
                     'date': date,
-                    'message': '描述'
+                    'message': msg
                 })
                 logStr = json.dumps(logList)
                 write_file(logPath, logStr)
@@ -188,8 +199,13 @@ def zh_git (type, fromPath, projectName, version, ignore=''):
     elif type == 'clone':
         projectName = fromPath.split('/')[-2]
         # 执行.py的本地路径
-        localPath = os.path.abspath(__file__)
-        toPath = localPath.replace("git.py", projectName, 1)
+        # os.path.abspath(__file__)不准确，打包后调用，会变成C:\Users\ADMINI~1\AppData\Local\Temp\_MEI90962\git.py
+        localPath = os.getcwd()
+        toPath = localPath
+        if "git.py" in toPath:
+            toPath = toPath.replace("git.py", projectName, 1)
+        else:
+            toPath = toPath + '\\' + projectName
         # 若存在，则删除
         if os.path.exists(toPath):
             shutil.rmtree(toPath)
@@ -212,12 +228,12 @@ def zh_git (type, fromPath, projectName, version, ignore=''):
         if os.path.exists(toPath):
             # log (os.listdir(publicPath + projectName))
             logList = json.loads(read_file(toPath))
+            print ('version\t  date\t\t\t message')
             for o in logList:
-                print ('version\t  date\t\t\t message')
                 print (f'{o["version"]}\t  {o["date"]}\t {o["message"]}')
         else:
             error (f'{toPath}不存在')
-
+        
 # 写入文件
 def write_file (filePath, text):
     # 以utf-8的编码写入文件
@@ -239,7 +255,7 @@ def read_file (filePath):
         return content
 
 # 获取配置：读取项目文件夹中的zhconfig.json，若不存在会自动创建
-def read_config (fromPath):
+def read_config (type, fromPath):
     # 项目名
     def get_projectName (fromPath):
         projectName = fromPath
@@ -279,28 +295,41 @@ def read_config (fromPath):
         return ignore
     
     projectName = get_projectName(fromPath)
-    configPath = fromPath + '/zhconfig.json'
-    configJson = get_config(configPath)
-    version = get_version(configJson)
-    ignore = get_ignore (configJson)
-    # 生成配置
-    config = dict(
-        # 待复制的文件夹名称
-        fromPath = fromPath,
-        # 待粘贴的文件夹名称
-        projectName = projectName,
-        version = version,
-        # 待忽略的文件列表
-        ignore = ignore
-    )
-    # 更新配置文件
-    if (not 'ignore' in configJson or not 'version' in configJson):
-        configJson['version'] = version
-        configJson['ignore'] = ignore
-        newConfig = json.dumps(configJson)
-        write_file (configPath, newConfig)
-    # 返回
-    return config
+    if type == 'log':
+        # 生成配置
+        config = dict(
+            # 待复制的文件夹名称
+            fromPath = fromPath,
+            # 待粘贴的文件夹名称
+            projectName = projectName,
+            version = '',
+            # 待忽略的文件列表
+            ignore = []
+        )
+        return config
+    else:
+        configPath = fromPath + '/zhconfig.json'
+        configJson = get_config(configPath)
+        version = get_version(configJson)
+        ignore = get_ignore (configJson)
+        # 生成配置
+        config = dict(
+            # 待复制的文件夹名称
+            fromPath = fromPath,
+            # 待粘贴的文件夹名称
+            projectName = projectName,
+            version = version,
+            # 待忽略的文件列表
+            ignore = ignore
+        )
+        # 更新配置文件
+        if (not 'ignore' in configJson or not 'version' in configJson):
+            configJson['version'] = version
+            configJson['ignore'] = ignore
+            newConfig = json.dumps(configJson)
+            write_file (configPath, newConfig)
+        # 返回
+        return config
 
 # 接收参数：获取"python git.py project -r"中的project项目名和-r命令类型
 def receive_Param (args):
@@ -322,27 +351,60 @@ def receive_Param (args):
             type = 'remove'
         elif param == 'log' or param == '-l':
             type = 'log'
+        elif param == 'help' or param == '-h':
+            type = 'help'
+    # 帮助手册
+    help = str.lower(target)
+    if help == 'help' or help == '-h' or type == 'help':
+        print ('------------------------------------------------------------')
+        print ('命令 \t\t 含义\n')
+        print ('空/-a/add \t 把目标文件夹复制到库中的stage缓存文件夹中（需读取zhconfig.json，不存在会自动创建）')
+        print ('-s/sumbit \t 把库中的stage缓存文件夹移动到形如V1.0.0_2022-1-22-13-24-56的自动命名文件夹中')
+        print ('-l/log \t\t 打印sumbit的记录（包含版本号、时间和提交说明）')
+        print ('-r/remove \t 删除某个库（本地需存在同名文件夹，否则不需删除）')
+        print ('-h/help \t 查看帮助手册\n')
+        print ('格式: zh 项目文件夹所在路径 命令类型')
+        print ('注: -h不需要项目文件夹所在路径\n')
+        print ('例如: 在project所在是文件夹下打开cmd（命令行）')
+        print ('输入命令(暂存)：zh project')
+        print ('输入命令(提交)：zh project -s')
+        print ('输入命令(记录)：zh project -l')
+        print ('输入命令(拉取)：zh project/V1.0.0_2022-1-22-13-24-56 -c')
+        print ('输入命令(删库)：zh project -r\n')
+        success ('绿色提示：成功进行文件操作，如复制、删除等', False)
+        warning ('黄色提示：程序出错，但不影响运行', False)
+        error ('红色提示：程序出错，不能运行', False)
+        print ('白色提示：剩下的统统都是白色提示')
+        print ('------------------------------------------------------------')
+        sys.exit()
     if type == 'clone':
         # 补全路径
         publicPath = 'D:/zzh/versionManage/'
         if not publicPath in target:
             target = publicPath + target
-    if not os.path.exists(target):
-        error (f'找不到{target}文件夹，本次上传失败')
-        exit()
+    if type == 'log':
+        pass
+    else:
+        if not os.path.exists(target):
+            if type == 'remove':
+                error (f'当前路径下不存在{target}，故不允许删除库（否则无法恢复）')
+            else:
+                error (f'找不到{target}文件夹，本次上传失败')
+            # 打包后exit()用不了，只能用sys.exit()
+            sys.exit()
     return (target, type)
 
 # 主函数入口：接收参数后读取配置并进行版本管理
 def main (*args):
     # 执行.py的本地路径
-    localPath = os.path.abspath(__file__)
+    localPath = os.getcwd()
+    print (localPath, args)
     # 接收命令行参数
     options = receive_Param (args)
-    # print (localPath, options)
     target = options[0]
     type = options[1]
     # 读取配置文件（只要填项目文件夹）
-    config = read_config(target)
+    config = read_config(type, target)
     log (f'配置项{config}')
     # 上传版本
     zh_git(type, **config)
