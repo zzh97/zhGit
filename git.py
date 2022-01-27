@@ -13,6 +13,7 @@ import os # 用于获取文件路径和创建文件夹
 import shutil # 用于复制粘贴文件
 import json # 用于解析JSON
 import sys # 用于接收命令行参数
+import stat # 用于删除只读文件
 
 # 获取当前时间
 def get_time (format = '%Y-%m-%d %H:%M:%S'):
@@ -134,8 +135,9 @@ def copy_file (fromPath, toPath, ignoreRule=[]):
     for fileName in pathDir:
         if is_ignore(fileName, ignoreList):
             continue
+        # .a既可能是文件也可能是文件夹，艹，故不能用if fileName.find('.') != -1
         # 处理文件
-        if fileName.find('.') != -1:
+        if os.path.isfile(fromPath +'/'+ fileName):
             formFile = os.path.join(fromPath, fileName)
             # 若不存在，则创建目录
             if not os.path.isdir(toPath):
@@ -143,6 +145,7 @@ def copy_file (fromPath, toPath, ignoreRule=[]):
                 success (f'成功创建{toPath}')
             # shutil的copy()是复制到一个新的地方，创建时间、修改时间、访问时间都是新的
             # copy2()则是会创建时间、修改时间、访问时间这些也复制过去
+            # 注意：无法拷贝文件元数据，如隐藏文件被复制后就不再是隐藏的了（但只读不会）
             shutil.copy(formFile, toPath)
             success (f'成功复制{formFile}粘贴到{toPath}')
         # 处理文件夹
@@ -150,11 +153,12 @@ def copy_file (fromPath, toPath, ignoreRule=[]):
             log (f'{fileName}是一个文件夹')
             formFile = os.path.join(fromPath, fileName)
             # 这里要加fileName，否则会放到同一个文件夹下
+            # 注意：空文件夹不会复制
             copy_file (formFile, toPath + '/' + fileName, ignoreRule)
             pass
 
 # 版本管理
-def zh_git (type, fromPath, projectName, version, ignore=''):
+def zh_git (type, fromPath, projectName, version, ignore=[]):
     # 更新时间（默认为当前时间）
     date = get_time('%Y-%m-%d-%H-%M-%S')
     # 本地存档
@@ -194,7 +198,11 @@ def zh_git (type, fromPath, projectName, version, ignore=''):
         toPath = publicPath + projectName + '/stage'
         # 若存在，则删除
         if os.path.exists(toPath):
-            shutil.rmtree(toPath)
+            # shutil.rmtree(toPath)是不能删除只读文件的
+            def readonly_handler(func, toPath, execinfo):
+                os.chmod(toPath, stat.S_IWRITE)
+                func(toPath)
+            shutil.rmtree(toPath, onerror=readonly_handler)
         copy_file(fromPath, toPath, ignore)
     elif type == 'clone':
         projectName = fromPath.split('/')[-2]
@@ -256,7 +264,6 @@ def read_file (filePath):
 
 # 获取配置：读取项目文件夹中的zhconfig.json，若不存在会自动创建
 def read_config (type, fromPath):
-    # 项目名
     def get_projectName (fromPath):
         projectName = fromPath
         if fromPath.find('/') != -1:
